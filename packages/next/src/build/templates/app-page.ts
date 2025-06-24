@@ -1106,7 +1106,7 @@ export async function handler(
       }
 
       // Mark that the request did postpone.
-      if (didPostpone) {
+      if (didPostpone && !isDynamicRSCRequest) {
         res.setHeader(NEXT_DID_POSTPONE_HEADER, '1')
       }
 
