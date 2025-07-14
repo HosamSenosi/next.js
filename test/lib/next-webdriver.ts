@@ -90,6 +90,11 @@ export interface WebdriverOptions {
    * Override the user agent
    */
   userAgent?: string
+
+  /**
+   * Override the default navigation timeout.
+   */
+  defaultNavigationTimeout?: number
 }
 
 /**
@@ -122,6 +127,7 @@ export default async function webdriver(
     pushErrorAsConsoleLog,
     userAgent,
     waitUntil,
+    defaultNavigationTimeout,
   } = options
 
   const { Playwright, quit } = await import('./browsers/playwright')
@@ -154,6 +160,7 @@ export default async function webdriver(
     beforePageLoad,
     pushErrorAsConsoleLog,
     waitUntil,
+    defaultNavigationTimeout,
   })
   console.log(`\n> Loaded browser with ${fullUrl}\n`)
 

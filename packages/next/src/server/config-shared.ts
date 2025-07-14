@@ -16,7 +16,6 @@ import type { WEB_VITALS } from '../shared/lib/utils'
 import type { NextParsedUrlQuery } from './request-meta'
 import type { SizeLimit } from '../types'
 import type { SupportedTestRunners } from '../cli/next-test'
-import type { ExperimentalPPRConfig } from './lib/experimental/ppr'
 import { INFINITE_CACHE } from '../lib/constants'
 import type {
   ManifestRewriteRoute,
@@ -691,10 +690,9 @@ export interface ExperimentalConfig {
   clientTraceMetadata?: string[]
 
   /**
-   * Enables experimental Partial Prerendering feature of Next.js.
-   * Using this feature will enable the `react@experimental` for the `app` directory.
+   * @deprecated Use `cacheComponents` instead.
    */
-  ppr?: ExperimentalPPRConfig
+  ppr?: boolean | 'incremental'
 
   /**
    * Enables experimental taint APIs in React.
@@ -959,11 +957,6 @@ export type ExportPathMap = {
      * @internal
      */
     _isDynamicError?: boolean
-
-    /**
-     * @internal
-     */
-    _isRoutePPREnabled?: boolean
 
     /**
      * When true, the page is prerendered as a fallback shell, while allowing
@@ -1591,7 +1584,6 @@ export const defaultConfig = Object.freeze({
     clientTraceMetadata: undefined,
     parallelServerCompiles: false,
     parallelServerBuildTraces: false,
-    ppr: false,
     authInterrupts: false,
     webpackBuildWorker: undefined,
     webpackMemoryOptimizations: false,

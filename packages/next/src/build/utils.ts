@@ -1,5 +1,4 @@
 import type { NextConfigComplete } from '../server/config-shared'
-import type { ExperimentalPPRConfig } from '../server/lib/experimental/ppr'
 import type { AppBuildManifest } from './webpack/plugins/app-build-manifest-plugin'
 import type { AssetBinding } from './webpack/loaders/get-module-build-info'
 import type { PageConfig, ServerRuntime } from '../types'
@@ -19,7 +18,6 @@ import type {
   AppPageModule,
   AppPageRouteModule,
 } from '../server/route-modules/app-page/module'
-import type { NextComponentType } from '../shared/lib/utils'
 
 import '../server/require-hook'
 import '../server/node-polyfill-crypto'
@@ -71,9 +69,7 @@ import { getRuntimeContext } from '../server/web/sandbox'
 import { isClientReference } from '../lib/client-and-server-references'
 import { normalizeAppPath } from '../shared/lib/router/utils/app-paths'
 import { denormalizeAppPagePath } from '../shared/lib/page-path/denormalize-app-path'
-import { RouteKind } from '../server/route-kind'
 import type { PageExtensions } from './page-extensions-type'
-import { checkIsRoutePPREnabled } from '../server/lib/experimental/ppr'
 import type { FallbackMode } from '../lib/fallback'
 import type { OutgoingHttpHeaders } from 'http'
 import type { AppSegmentConfig } from './segment-config/app/app-segment-config'
@@ -353,10 +349,6 @@ export interface PageInfo {
   totalSize: number
   isStatic: boolean
   isSSG: boolean
-  /**
-   * If true, it means that the route has partial prerendering enabled.
-   */
-  isRoutePPREnabled: boolean
   ssgPageRoutes: string[] | null
   initialCacheControl: CacheControl | undefined
   pageDuration: number | undefined
@@ -402,6 +394,7 @@ export async function printTreeView(
     middlewareManifest,
     useStaticPages404,
     gzipSize = true,
+    cacheComponents,
   }: {
     distPath: string
     buildId: string
@@ -412,6 +405,7 @@ export async function printTreeView(
     middlewareManifest: MiddlewareManifest
     useStaticPages404: boolean
     gzipSize?: boolean
+    cacheComponents: boolean
   }
 ) {
   const getPrettySize = (
@@ -535,14 +529,14 @@ export async function printTreeView(
         symbol = ' '
       } else if (isEdgeRuntime(pageInfo?.runtime)) {
         symbol = 'ƒ'
-      } else if (pageInfo?.isRoutePPREnabled) {
+      } else if (cacheComponents) {
         if (
           // If the page has an empty static shell, then it's equivalent to a
           // dynamic page
           pageInfo?.hasEmptyStaticShell ||
           // ensure we don't mark dynamic paths that postponed as being dynamic
           // since in this case we're able to partially prerender it
-          (pageInfo.isDynamicAppRoute && !pageInfo.hasPostponed)
+          (pageInfo?.isDynamicAppRoute && !pageInfo?.hasPostponed)
         ) {
           symbol = 'ƒ'
         } else if (!pageInfo?.hasPostponed) {
@@ -1009,7 +1003,6 @@ export async function getJsPageSizeInKb(
 }
 
 type PageIsStaticResult = {
-  isRoutePPREnabled?: boolean
   isStatic?: boolean
   isAmpOnly?: boolean
   isHybridAmp?: boolean
@@ -1046,7 +1039,6 @@ export async function isPageStatic({
   cacheHandler,
   cacheHandlers,
   cacheLifeProfiles,
-  pprConfig,
   buildId,
   sriEnabled,
 }: {
@@ -1073,7 +1065,6 @@ export async function isPageStatic({
     [profile: string]: import('../server/use-cache/cache-life').CacheLife
   }
   nextConfigOutput: 'standalone' | 'export' | undefined
-  pprConfig: ExperimentalPPRConfig | undefined
   buildId: string
   sriEnabled: boolean
 }): Promise<PageIsStaticResult> {
@@ -1081,7 +1072,6 @@ export async function isPageStatic({
   if (page === UNDERSCORE_GLOBAL_ERROR_ROUTE) {
     return {
       isStatic: true,
-      isRoutePPREnabled: false,
       isHybridAmp: false,
       isAmpOnly: false,
       prerenderFallbackMode: undefined,
@@ -1101,6 +1091,7 @@ export async function isPageStatic({
     dir,
     flushToDisk: isrFlushToDisk,
     cacheMaxMemorySize: maxMemoryCacheSize,
+    cacheComponents,
   })
 
   const isPageStaticSpan = trace('is-page-static-utils', parentId)
@@ -1167,12 +1158,6 @@ export async function isPageStatic({
         })
       }
 
-      const { Component, routeModule } = componentsResult
-
-      const Comp = Component as NextComponentType | undefined
-
-      let isRoutePPREnabled: boolean = false
-
       if (pageType === 'app') {
         const ComponentMod: AppPageModule = componentsResult.ComponentMod
 
@@ -1183,7 +1168,9 @@ export async function isPageStatic({
           segments = await collectSegments(
             // We know this is an app page or app route module because we
             // checked above that the page type is 'app'.
-            routeModule as AppPageRouteModule | AppRouteRouteModule
+            componentsResult.routeModule as
+              | AppPageRouteModule
+              | AppRouteRouteModule
           )
         } catch (err) {
           throw new Error(`Failed to collect configuration for ${page}`, {
@@ -1202,19 +1189,13 @@ export async function isPageStatic({
           )
         }
 
-        rootParamKeys = collectRootParamKeys(routeModule)
+        rootParamKeys = collectRootParamKeys(componentsResult.routeModule)
 
-        // A page supports partial prerendering if it is an app page and either
-        // the whole app has PPR enabled or this page has PPR enabled when we're
-        // in incremental mode.
-        isRoutePPREnabled =
-          routeModule.definition.kind === RouteKind.APP_PAGE &&
-          checkIsRoutePPREnabled(pprConfig, appConfig)
-
-        // If force dynamic was set and we don't have PPR enabled, then set the
-        // revalidate to 0.
-        // TODO: (PPR) remove this once PPR is enabled by default
-        if (appConfig.dynamic === 'force-dynamic' && !isRoutePPREnabled) {
+        // If force dynamic was set and we don't have cache components enabled,
+        // then set the revalidate to 0.
+        // TODO: remove this once cache components is enabled
+        // by default
+        if (appConfig.dynamic === 'force-dynamic' && !cacheComponents) {
           appConfig.revalidate = 0
         }
 
@@ -1237,18 +1218,21 @@ export async function isPageStatic({
               cacheLifeProfiles,
               ComponentMod,
               nextConfigOutput,
-              isRoutePPREnabled,
               buildId,
               rootParamKeys,
             }))
         }
       } else {
-        if (!Comp || !isValidElementType(Comp) || typeof Comp === 'string') {
+        if (
+          !componentsResult.Component ||
+          !isValidElementType(componentsResult.Component) ||
+          typeof componentsResult.Component === 'string'
+        ) {
           throw new Error('INVALID_DEFAULT_EXPORT')
         }
       }
 
-      const hasGetInitialProps = !!Comp?.getInitialProps
+      const hasGetInitialProps = !!componentsResult.Component?.getInitialProps
       const hasStaticProps = !!componentsResult.getStaticProps
       const hasStaticPaths = !!componentsResult.getStaticPaths
       const hasServerProps = !!componentsResult.getServerSideProps
@@ -1304,15 +1288,14 @@ export async function isPageStatic({
         isStatic = true
       }
 
-      // When PPR is enabled, any route may be completely static, so
+      // When cacheComponents is enabled, any route may be completely static, so
       // mark this route as static.
-      if (isRoutePPREnabled) {
+      if (cacheComponents) {
         isStatic = true
       }
 
       return {
         isStatic,
-        isRoutePPREnabled,
         isHybridAmp: config.amp === 'hybrid',
         isAmpOnly: config.amp === true,
         prerenderFallbackMode,
@@ -1339,7 +1322,6 @@ type ReducedAppConfig = Pick<
   | 'dynamic'
   | 'fetchCache'
   | 'preferredRegion'
-  | 'experimental_ppr'
   | 'runtime'
   | 'maxDuration'
 >
@@ -1362,7 +1344,6 @@ export function reduceAppConfig(
       fetchCache,
       preferredRegion,
       revalidate,
-      experimental_ppr,
       runtime,
       maxDuration,
     } = segment.config || {}
@@ -1393,12 +1374,6 @@ export function reduceAppConfig(
       (typeof config.revalidate !== 'number' || revalidate < config.revalidate)
     ) {
       config.revalidate = revalidate
-    }
-
-    // If partial prerendering has been set, only override it if the current
-    // value is provided as it's resolved from root layout to leaf page.
-    if (typeof experimental_ppr !== 'undefined') {
-      config.experimental_ppr = experimental_ppr
     }
 
     if (typeof runtime !== 'undefined') {

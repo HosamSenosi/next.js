@@ -55,7 +55,6 @@ import { getCacheHandler } from './handlers'
 import { UseCacheTimeoutError } from './use-cache-errors'
 import {
   createHangingInputAbortSignal,
-  postponeWithTracking,
   throwToInterruptStaticGeneration,
 } from '../app-render/dynamic-rendering'
 import {
@@ -226,7 +225,6 @@ function createUseCacheStore(
           break
         case 'prerender-runtime':
         case 'prerender':
-        case 'prerender-ppr':
         case 'prerender-legacy':
         case 'unstable-cache':
           break
@@ -360,7 +358,6 @@ function propagateCacheLifeAndTags(
       case 'private-cache':
       case 'prerender':
       case 'prerender-runtime':
-      case 'prerender-ppr':
       case 'prerender-legacy':
         propagateCacheLifeAndTagsToRevalidateStore(
           cacheContext.outerWorkUnitStore,
@@ -525,7 +522,6 @@ async function generateCacheEntryImpl(
                       }
                     })
                     break
-                  case 'prerender-ppr':
                   case 'prerender-legacy':
                   case 'request':
                   case 'cache':
@@ -661,7 +657,6 @@ async function generateCacheEntryImpl(
         stream = prelude
       }
       break
-    case 'prerender-ppr':
     case 'prerender-legacy':
     case 'request':
     case 'cache':
@@ -848,12 +843,6 @@ export function cache(
               workStore.route,
               expression
             )
-          case 'prerender-ppr':
-            return postponeWithTracking(
-              workStore.route,
-              expression,
-              workUnitStore.dynamicTracking
-            )
           case 'prerender-legacy':
             return throwToInterruptStaticGeneration(
               expression,
@@ -916,7 +905,6 @@ export function cache(
             )
           case 'prerender':
           case 'prerender-runtime':
-          case 'prerender-ppr':
           case 'prerender-legacy':
           case 'request':
           case 'cache':
@@ -1121,7 +1109,6 @@ export function cache(
             break
           }
         // fallthrough
-        case 'prerender-ppr':
         case 'prerender-legacy':
         case 'request':
         case 'cache':
@@ -1191,7 +1178,6 @@ export function cache(
                   }
                   break
                 }
-                case 'prerender-ppr':
                 case 'prerender-legacy':
                 case 'request':
                 case 'cache':
@@ -1219,7 +1205,6 @@ export function cache(
                     'dynamic "use cache"'
                   )
                 case 'prerender':
-                case 'prerender-ppr':
                 case 'prerender-legacy':
                 case 'request':
                 case 'cache':
@@ -1274,7 +1259,6 @@ export function cache(
                 }
                 break
               case 'prerender-runtime':
-              case 'prerender-ppr':
               case 'prerender-legacy':
               case 'request':
               case 'cache':
@@ -1378,7 +1362,6 @@ export function cache(
                 await workUnitStore.runtimeStagePromise
               }
               break
-            case 'prerender-ppr':
             case 'prerender-legacy':
             case 'request':
             case 'cache':
@@ -1629,7 +1612,6 @@ function shouldForceRevalidate(
       case 'prerender-runtime':
       case 'prerender':
       case 'prerender-client':
-      case 'prerender-ppr':
       case 'prerender-legacy':
       case 'unstable-cache':
         break
@@ -1672,7 +1654,6 @@ function shouldDiscardCacheEntry(
         return false
       case 'prerender-runtime':
       case 'prerender-client':
-      case 'prerender-ppr':
       case 'prerender-legacy':
       case 'request':
       case 'cache':

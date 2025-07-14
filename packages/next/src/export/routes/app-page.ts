@@ -105,9 +105,11 @@ export async function exportAppPage(
       renderResumeDataCache,
     } = metadata
 
-    // Ensure we don't postpone without having PPR enabled.
-    if (postponed && !renderOpts.experimental.isRoutePPREnabled) {
-      throw new Error('Invariant: page postponed without PPR being enabled')
+    // Ensure we don't postpone without having cache components enabled.
+    if (postponed && !renderOpts.experimental.cacheComponents) {
+      throw new Error(
+        'Invariant: page postponed without cache components being enabled'
+      )
     }
 
     if (cacheControl.revalidate === 0) {
@@ -132,26 +134,21 @@ export async function exportAppPage(
     // If page data isn't available, it means that the page couldn't be rendered
     // properly so long as we don't have unknown route params. When a route doesn't
     // have unknown route params, there will not be any flight data.
-    if (!flightData) {
-      // Unless the user has clientParamParsing enabled, we expect that routes
-      // that don't have fallback route params would have flight data. This is
-      // because when clientParamParsing is enabled, the absence of flight data
-      // means that the route has unknown route params.
-      if (
-        !fallbackRouteParams ||
-        fallbackRouteParams.size === 0 ||
-        renderOpts.experimental.clientParamParsing
-      ) {
-        throw new Error(`Invariant: failed to get page data for ${path}`)
-      }
-    } else {
-      // If PPR is enabled, we want to emit a prefetch rsc file for the page
-      // instead of the standard rsc. This is because the standard rsc will
-      // contain the dynamic data. We do this if any routes have PPR enabled so
-      // that the cache read/write is the same.
-      if (renderOpts.experimental.isRoutePPREnabled) {
-        // If PPR is enabled, we should emit the flight data as the prefetch
-        // payload.
+    if (
+      !flightData &&
+      (!fallbackRouteParams || fallbackRouteParams.size === 0)
+    ) {
+      throw new Error(`Invariant: failed to get page data for ${path}`)
+    }
+
+    if (flightData) {
+      // If cache components is enabled, we want to emit a prefetch rsc file
+      // for the page instead of the standard rsc. This is because the standard
+      // rsc will contain the dynamic data. We do this if any routes have cache
+      // components enabled so that the cache read/write is the same.
+      if (renderOpts.experimental.cacheComponents) {
+        // If cache components is enabled, we should emit the flight data as the
+        // prefetch payload.
         // TODO: This will eventually be replaced by the per-segment prefetch
         // output below.
         fileWriter.append(
@@ -159,7 +156,8 @@ export async function exportAppPage(
           flightData
         )
       } else {
-        // Writing the RSC payload to a file if we don't have PPR enabled.
+        // Writing the RSC payload to a file if we don't have cache components
+        // enabled.
         fileWriter.append(
           htmlFilepath.replace(/\.html$/, RSC_SUFFIX),
           flightData
@@ -201,10 +199,10 @@ export async function exportAppPage(
     const isParallelRoute = /\/@\w+/.test(page)
     const isNonSuccessfulStatusCode = res.statusCode > 300
 
-    // When PPR is enabled, we don't always send 200 for routes that have been
-    // pregenerated, so we should grab the status code from the mocked
-    // response.
-    let status: number | undefined = renderOpts.experimental.isRoutePPREnabled
+    // When cache components is enabled, we don't always send 200 for routes
+    // that have been pregenerated, so we should grab the status code from the
+    // mocked response.
+    let status: number | undefined = renderOpts.experimental.cacheComponents
       ? res.statusCode
       : undefined
 

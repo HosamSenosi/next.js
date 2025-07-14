@@ -3,7 +3,6 @@ import type { WorkStore } from '../app-render/work-async-storage.external'
 import { ReflectAdapter } from '../web/spec-extension/adapters/reflect'
 import {
   throwToInterruptStaticGeneration,
-  postponeWithTracking,
   trackDynamicDataInDynamicRender,
   annotateDynamicAccess,
   trackSynchronousRequestDataAccessInDev,
@@ -13,7 +12,6 @@ import {
 import {
   workUnitAsyncStorage,
   type PrerenderStoreLegacy,
-  type PrerenderStorePPR,
   type PrerenderStoreModern,
   type PrerenderStoreModernRuntime,
   type StaticPrerenderStore,
@@ -74,7 +72,6 @@ export function createSearchParamsFromClient(
     switch (workUnitStore.type) {
       case 'prerender':
       case 'prerender-client':
-      case 'prerender-ppr':
       case 'prerender-legacy':
         return createStaticPrerenderSearchParams(workStore, workUnitStore)
       case 'prerender-runtime':
@@ -109,7 +106,6 @@ export function createServerSearchParamsForServerPage(
     switch (workUnitStore.type) {
       case 'prerender':
       case 'prerender-client':
-      case 'prerender-ppr':
       case 'prerender-legacy':
         return createStaticPrerenderSearchParams(workStore, workUnitStore)
       case 'cache':
@@ -163,7 +159,6 @@ export function createPrerenderSearchParamsForClientPage(
         throw new InvariantError(
           'createPrerenderSearchParamsForClientPage should not be called in cache contexts.'
         )
-      case 'prerender-ppr':
       case 'prerender-legacy':
       case 'request':
         return Promise.resolve({})
@@ -187,9 +182,8 @@ function createStaticPrerenderSearchParams(
   switch (prerenderStore.type) {
     case 'prerender':
     case 'prerender-client':
-      // We are in a cacheComponents (PPR or otherwise) prerender
+      // We are in a Cache Components prerender
       return makeHangingSearchParams(workStore, prerenderStore)
-    case 'prerender-ppr':
     case 'prerender-legacy':
       // We are in a legacy static generation and need to interrupt the
       // prerender when search params are accessed.
@@ -304,7 +298,7 @@ function makeHangingSearchParams(
 
 function makeErroringExoticSearchParams(
   workStore: WorkStore,
-  prerenderStore: PrerenderStoreLegacy | PrerenderStorePPR
+  prerenderStore: PrerenderStoreLegacy
 ): Promise<SearchParams> {
   const cachedSearchParams = CachedSearchParams.get(workStore)
   if (cachedSearchParams) {
@@ -335,13 +329,6 @@ function makeErroringExoticSearchParams(
               workStore.route,
               expression
             )
-          } else if (prerenderStore.type === 'prerender-ppr') {
-            // PPR Prerender (no cacheComponents)
-            postponeWithTracking(
-              workStore.route,
-              expression,
-              prerenderStore.dynamicTracking
-            )
           } else {
             // Legacy Prerender
             throwToInterruptStaticGeneration(
@@ -359,13 +346,6 @@ function makeErroringExoticSearchParams(
             throwWithStaticGenerationBailoutErrorWithDynamicError(
               workStore.route,
               expression
-            )
-          } else if (prerenderStore.type === 'prerender-ppr') {
-            // PPR Prerender (no cacheComponents)
-            postponeWithTracking(
-              workStore.route,
-              expression,
-              prerenderStore.dynamicTracking
             )
           } else {
             // Legacy Prerender
@@ -387,13 +367,6 @@ function makeErroringExoticSearchParams(
               throwWithStaticGenerationBailoutErrorWithDynamicError(
                 workStore.route,
                 expression
-              )
-            } else if (prerenderStore.type === 'prerender-ppr') {
-              // PPR Prerender (no cacheComponents)
-              postponeWithTracking(
-                workStore.route,
-                expression,
-                prerenderStore.dynamicTracking
               )
             } else {
               // Legacy Prerender
@@ -423,13 +396,6 @@ function makeErroringExoticSearchParams(
             workStore.route,
             expression
           )
-        } else if (prerenderStore.type === 'prerender-ppr') {
-          // PPR Prerender (no cacheComponents)
-          postponeWithTracking(
-            workStore.route,
-            expression,
-            prerenderStore.dynamicTracking
-          )
         } else {
           // Legacy Prerender
           throwToInterruptStaticGeneration(
@@ -449,13 +415,6 @@ function makeErroringExoticSearchParams(
         throwWithStaticGenerationBailoutErrorWithDynamicError(
           workStore.route,
           expression
-        )
-      } else if (prerenderStore.type === 'prerender-ppr') {
-        // PPR Prerender (no cacheComponents)
-        postponeWithTracking(
-          workStore.route,
-          expression,
-          prerenderStore.dynamicTracking
         )
       } else {
         // Legacy Prerender
@@ -835,7 +794,6 @@ function syncIODev(
       case 'prerender':
       case 'prerender-client':
       case 'prerender-runtime':
-      case 'prerender-ppr':
       case 'prerender-legacy':
       case 'cache':
       case 'private-cache':

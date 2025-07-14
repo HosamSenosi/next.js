@@ -25,10 +25,136 @@ describe('use-cache-hanging-inputs', () => {
   }
 
   if (isNextDev) {
+    describe('when searchParams are used inside of "use cache"', () => {
+      it('should show an error toast after a timeout', async () => {
+        const outputIndex = next.cliOutput.length
+        const browser = await next.browser('/search-params?n=1', {
+          // Allow for the warmup render to complete and then the main render.
+          defaultNavigationTimeout: (10 + 50 * 2) * 1000,
+        })
+
+        // The request is pending while we stall on the hanging inputs, and
+        // playwright will wait for the load event before continuing. So we
+        // don't need to wait for the "use cache" timeout of 50 seconds here.
+
+        await openRedbox(browser)
+
+        const errorCount = await getRedboxTotalErrorCount(browser)
+        const errorDescription = await getRedboxDescription(browser)
+        const errorSource = await getRedboxSource(browser)
+
+        expect(errorCount).toBe(1)
+        expect(errorDescription).toBe(expectedTimeoutErrorMessage)
+
+        const cliOutput = stripAnsi(next.cliOutput.slice(outputIndex))
+
+        if (isTurbopack) {
+          expect(errorSource).toMatchInlineSnapshot(`
+           "app/search-params/page.tsx (3:16) @ {module evaluation}
+
+             1 | 'use cache'
+             2 |
+           > 3 | export default async function Page({
+               |                ^
+             4 |   searchParams,
+             5 | }: {
+             6 |   searchParams: Promise<{ n: string }>"
+          `)
+
+          expect(cliOutput).toContain(`Error: ${expectedTimeoutErrorMessage}
+    at __TURBOPACK__module__evaluation__`)
+        } else {
+          expect(errorSource).toMatchInlineSnapshot(`
+           "app/search-params/page.tsx (3:16) @ eval
+
+             1 | 'use cache'
+             2 |
+           > 3 | export default async function Page({
+               |                ^
+             4 |   searchParams,
+             5 | }: {
+             6 |   searchParams: Promise<{ n: string }>"
+          `)
+
+          expect(cliOutput).toContain(`Error: ${expectedTimeoutErrorMessage}
+    at eval (app/search-params/page.tsx:3:16)`)
+        }
+      }, 180_000)
+    })
+
+    describe('when searchParams are used inside of "use cache", wrapped in try/catch', () => {
+      it('should show an error toast after a timeout', async () => {
+        const outputIndex = next.cliOutput.length
+        const browser = await next.browser('/search-params-caught?n=1', {
+          // Allow for the warmup render to complete and then the main render.
+          defaultNavigationTimeout: (10 + 50 * 2) * 1000,
+        })
+
+        // The request is pending while we stall on the hanging inputs, and
+        // playwright will wait for the load event before continuing. So we
+        // don't need to wait for the "use cache" timeout of 50 seconds here.
+
+        await openRedbox(browser)
+
+        const errorCount = await getRedboxTotalErrorCount(browser)
+        const errorDescription = await getRedboxDescription(browser)
+        const errorSource = await getRedboxSource(browser)
+
+        expect(errorCount).toBe(1)
+        expect(errorDescription).toBe(expectedTimeoutErrorMessage)
+
+        const cliOutput = stripAnsi(next.cliOutput.slice(outputIndex))
+
+        if (isTurbopack) {
+          expect(errorSource).toMatchInlineSnapshot(`
+           "app/search-params-caught/page.tsx (1:1) @ {module evaluation}
+
+           > 1 | async function getSearchParam({
+               | ^
+             2 |   searchParams,
+             3 | }: {
+             4 |   searchParams: Promise<{ n: string }>"
+          `)
+
+          expect(cliOutput).toContain(`Error: ${expectedTimeoutErrorMessage}
+    at __TURBOPACK__module__evaluation__`)
+        } else {
+          expect(errorSource).toMatchInlineSnapshot(`
+           "app/search-params-caught/page.tsx (1:1) @ eval
+
+           > 1 | async function getSearchParam({
+               | ^
+             2 |   searchParams,
+             3 | }: {
+             4 |   searchParams: Promise<{ n: string }>"
+          `)
+
+          expect(cliOutput).toContain(`Error: ${expectedTimeoutErrorMessage}
+    at eval (app/search-params-caught/page.tsx:1:1)`)
+        }
+      }, 180_000)
+    })
+
+    describe('when searchParams are unused inside of "use cache"', () => {
+      it('should not show an error', async () => {
+        const outputIndex = next.cliOutput.length
+        const browser = await next.browser('/search-params-unused?n=1')
+
+        await assertNoRedbox(browser)
+
+        const cliOutput = stripAnsi(next.cliOutput.slice(outputIndex))
+
+        expect(cliOutput).not.toContain(`Error: ${expectedTimeoutErrorMessage}`)
+      })
+    })
+
     describe('when an uncached promise is used inside of "use cache"', () => {
       it('should show an error toast after a timeout', async () => {
         const outputIndex = next.cliOutput.length
-        const browser = await next.browser('/uncached-promise')
+        const browser = await next.browser('/uncached-promise', {
+          // Allow for the warmup render to complete and then the main render.
+          defaultNavigationTimeout: (10 + 50 * 2) * 1000,
+        })
 
         // The request is pending while we stall on the hanging inputs, and
         // playwright will wait for the load even before continuing. So we don't
@@ -82,7 +208,10 @@ describe('use-cache-hanging-inputs', () => {
     describe('when an uncached promise is used inside of a nested "use cache"', () => {
       it('should show an error toast after a timeout', async () => {
         const outputIndex = next.cliOutput.length
-        const browser = await next.browser('/uncached-promise-nested')
+        const browser = await next.browser('/uncached-promise-nested', {
+          // Allow for the warmup render to complete and then the main render.
+          defaultNavigationTimeout: (10 + 50 * 2) * 1000,
+        })
 
         // The request is pending while we stall on the hanging inputs, and
         // playwright will wait for the load even before continuing. So we don't
@@ -136,7 +265,10 @@ describe('use-cache-hanging-inputs', () => {
     describe('when a "use cache" function is closing over an uncached promise', () => {
       it('should show an error toast after a timeout', async () => {
         const outputIndex = next.cliOutput.length
-        const browser = await next.browser('/bound-args')
+        const browser = await next.browser('/bound-args', {
+          // Allow for the warmup render to complete and then the main render.
+          defaultNavigationTimeout: (10 + 50 * 2) * 1000,
+        })
 
         // The request is pending while we stall on the hanging inputs, and
         // playwright will wait for the load even before continuing. So we don't
@@ -190,7 +322,10 @@ describe('use-cache-hanging-inputs', () => {
 
     describe('when an error is thrown', () => {
       it('should show an error overlay with only one error', async () => {
-        const browser = await next.browser('/error')
+        const browser = await next.browser('/error', {
+          // Allow for the warmup render to complete and then the main render.
+          defaultNavigationTimeout: (10 + 50 * 2) * 1000,
+        })
 
         await assertHasRedbox(browser)
 

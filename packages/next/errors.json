@@ -794,5 +794,10 @@
   "793": "No value found for segment key: \"%s\"",
   "794": "Invalid <Link> with <a> child. Please remove <a>.\nLearn more: https://nextjs.org/docs/messages/invalid-new-link-with-extra-anchor",
   "795": "\\`%s\\` was called from a Server Component. Next.js should be preventing %s from being included in server components statically, but did not in this case.",
-  "796": "Page \"%s\" cannot use \\`export const unstable_prefetch = ...\\` without enabling \\`experimental.cacheComponents\\` and \\`experimental.clientSegmentCache\\`."
+  "796": "Page \"%s\" cannot use \\`export const unstable_prefetch = ...\\` without enabling \\`experimental.cacheComponents\\` and \\`experimental.clientSegmentCache\\`.",
+  "797": "Invariant: page postponed without cache components being enabled",
+  "798": "createPrerenderPathname cannot be called with the prerender-legacy work unit type.",
+  "799": "\\`experimental.ppr\\` cannot be set to \"incremental\" as cache components does not support it. Please remove it from %s.",
+  "800": "Invariant: cache components cannot be enabled in export mode",
+  "801": "\\`experimental.ppr\\` and \\`experimental.cacheComponents\\` cannot be set to different values. Please remove \\`experimental.ppr\\` from %s."
 }

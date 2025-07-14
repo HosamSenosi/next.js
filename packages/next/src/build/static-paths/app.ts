@@ -300,7 +300,7 @@ export function calculateFallbackMode(
  *
  * @param page - The page to validate.
  * @param regex - The route regex.
- * @param isRoutePPREnabled - Whether the route has partial prerendering enabled.
+ * @param cacheComponents - Whether the route has partial prerendering enabled.
  * @param childrenRouteParams - The keys of the parameters.
  * @param rootParamKeys - The keys of the root params.
  * @param routeParams - The list of parameters to validate.
@@ -309,7 +309,7 @@ export function calculateFallbackMode(
 function validateParams(
   page: string,
   regex: RouteRegex,
-  isRoutePPREnabled: boolean,
+  cacheComponents: boolean,
   childrenRouteParams: ReadonlyArray<{
     readonly paramName: string
   }>,
@@ -320,7 +320,7 @@ function validateParams(
 
   // Validate that if there are any root params, that the user has provided at
   // least one value for them only if we're using partial prerendering.
-  if (isRoutePPREnabled && rootParamKeys.length > 0) {
+  if (cacheComponents && rootParamKeys.length > 0) {
     if (
       routeParams.length === 0 ||
       rootParamKeys.some((key) =>
@@ -361,7 +361,7 @@ function validateParams(
       // We only support this when the route has partial prerendering enabled.
       // This will make it so that the remaining params are marked as missing so
       // we can generate a fallback route for them.
-      if (!paramValue && isRoutePPREnabled) {
+      if (!paramValue && cacheComponents) {
         break
       }
 
@@ -729,7 +729,6 @@ export async function buildAppStaticPaths({
   fetchCacheKeyPrefix,
   nextConfigOutput,
   ComponentMod,
-  isRoutePPREnabled = false,
   buildId,
   rootParamKeys,
 }: {
@@ -750,7 +749,6 @@ export async function buildAppStaticPaths({
   requestHeaders: IncrementalCache['requestHeaders']
   nextConfigOutput: 'standalone' | 'export' | undefined
   ComponentMod: AppPageModule
-  isRoutePPREnabled: boolean
   buildId: string
   rootParamKeys: readonly string[]
 }): Promise<StaticPathsResult> {
@@ -774,6 +772,7 @@ export async function buildAppStaticPaths({
     fetchCacheKeyPrefix,
     flushToDisk: isrFlushToDisk,
     cacheMaxMemorySize: maxMemoryCacheSize,
+    cacheComponents,
   })
 
   const regex = getRouteRegex(page)
@@ -903,7 +902,7 @@ export async function buildAppStaticPaths({
 
   const fallbackMode = dynamicParams
     ? supportsRoutePreGeneration
-      ? isRoutePPREnabled
+      ? cacheComponents
         ? FallbackMode.PRERENDER
         : FallbackMode.BLOCKING_STATIC_RENDER
       : undefined
@@ -925,10 +924,10 @@ export async function buildAppStaticPaths({
   // Convert rootParamKeys to Set for O(1) lookup.
   const rootParamSet = new Set(rootParamKeys)
 
-  if (hadAllParamsGenerated || isRoutePPREnabled) {
+  if (hadAllParamsGenerated || cacheComponents) {
     let paramsToProcess = routeParams
 
-    if (isRoutePPREnabled) {
+    if (cacheComponents) {
       // Discover all unique combinations of the routeParams so we can generate
       // routes that won't throw on empty static shell for each of them if
       // they're available.
@@ -969,7 +968,7 @@ export async function buildAppStaticPaths({
       validateParams(
         page,
         regex,
-        isRoutePPREnabled,
+        cacheComponents,
         childrenRouteParamSegments,
         rootParamKeys,
         paramsToProcess
@@ -987,7 +986,7 @@ export async function buildAppStaticPaths({
         const paramValue = params[key]
 
         if (!paramValue) {
-          if (isRoutePPREnabled) {
+          if (cacheComponents) {
             // Mark remaining params as fallback params.
             fallbackRouteParams.push(createFallbackRouteParam(key, type, false))
             for (

@@ -343,7 +343,7 @@ export const publicAppRouterInstance: AppRouterInstance = {
         switch (prefetchKind) {
           case PrefetchKind.AUTO: {
             // We default to PPR. We'll discover whether or not the route supports it with the initial prefetch.
-            fetchStrategy = FetchStrategy.PPR
+            fetchStrategy = FetchStrategy.CacheComponents
             break
           }
           case PrefetchKind.FULL: {
@@ -360,7 +360,7 @@ export const publicAppRouterInstance: AppRouterInstance = {
             // we might get an unexpected value from user code.
             // We don't know what they want, but we know they want a prefetch,
             // so use the default.
-            fetchStrategy = FetchStrategy.PPR
+            fetchStrategy = FetchStrategy.CacheComponents
           }
         }
 
