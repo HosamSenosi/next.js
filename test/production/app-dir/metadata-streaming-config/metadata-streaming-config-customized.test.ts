@@ -37,6 +37,11 @@ describe('app-dir - metadata-streaming-config-customized', () => {
          "type": "header",
          "value": "MyBot",
        },
+       "/_not-found": {
+         "key": "user-agent",
+         "type": "header",
+         "value": "MyBot",
+       },
        "/dynamic": {
          "key": "user-agent",
          "type": "header",

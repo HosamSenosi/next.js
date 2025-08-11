@@ -7,6 +7,7 @@ import {
   assertHasRedbox,
   getRedboxTitle,
   getRedboxTotalErrorCount,
+  assertNoRedbox,
 } from 'next-test-utils'
 import stripAnsi from 'strip-ansi'
 
