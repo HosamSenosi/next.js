@@ -564,7 +564,7 @@ type HandleEntrypointsHooks = {
 type HandleEntrypointsDevOpts = {
   assetMapper: AssetMapper
   changeSubscriptions: ChangeSubscriptions
-  clients: Set<ws>
+  clientsByRequestId: Map<string, ws>
   clientStates: ClientStateMap
   serverFields: ServerFields
 
@@ -796,7 +796,7 @@ async function handleEntrypointsDevCleanup({
 
   assetMapper,
   changeSubscriptions,
-  clients,
+  clientsByRequestId,
   clientStates,
 
   hooks,
@@ -824,7 +824,7 @@ async function handleEntrypointsDevCleanup({
     }
   }
 
-  for (const client of clients) {
+  for (const client of clientsByRequestId.values()) {
     const state = clientStates.get(client)
     if (!state) {
       continue

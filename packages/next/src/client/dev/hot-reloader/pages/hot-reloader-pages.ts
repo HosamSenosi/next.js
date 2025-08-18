@@ -374,6 +374,9 @@ function processMessage(obj: HMR_ACTION_TYPES) {
     case HMR_ACTIONS_SENT_TO_BROWSER.DEVTOOLS_CONFIG:
       dispatcher.onDevToolsConfig(obj.data)
       break
+    case HMR_ACTIONS_SENT_TO_BROWSER.REACT_DEBUG_CHUNK:
+      // Only relevant for app router.
+      break
     default:
       obj satisfies never
   }
