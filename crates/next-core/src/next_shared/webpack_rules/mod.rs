@@ -1,11 +1,13 @@
-use std::{collections::BTreeSet, str::FromStr};
+use std::{collections::BTreeSet, fmt, str::FromStr, sync::LazyLock};
 
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Visitor};
 use turbo_rcstr::rcstr;
-use turbo_tasks::{NonLocalValue, ResolvedVc, TaskInput, Vc, trace::TraceRawVcs};
+use turbo_tasks::{NonLocalValue, OperationValue, ResolvedVc, TaskInput, Vc, trace::TraceRawVcs};
 use turbo_tasks_fs::FileSystemPath;
-use turbopack::module_options::WebpackLoadersOptions;
+use turbopack::module_options::{
+    WebpackLoaderBuiltinConditionSet, WebpackLoaderBuiltinConditionSetMatch, WebpackLoadersOptions,
+};
 use turbopack_core::resolve::{ExternalTraced, ExternalType, options::ImportMapping};
 
 use self::{babel::maybe_add_babel_loader, sass::maybe_add_sass_loader};
@@ -34,11 +36,10 @@ pub(crate) mod sass;
     PartialOrd,
     Ord,
     Hash,
-    Serialize,
-    Deserialize,
     TaskInput,
     TraceRawVcs,
     NonLocalValue,
+    OperationValue,
 )]
 pub enum WebpackLoaderBuiltinCondition {
     /// Treated as always-present.
@@ -60,7 +61,7 @@ pub enum WebpackLoaderBuiltinCondition {
 }
 
 impl WebpackLoaderBuiltinCondition {
-    fn as_str(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             Self::Default => "default",
             Self::Browser => "browser",
@@ -70,6 +71,28 @@ impl WebpackLoaderBuiltinCondition {
             Self::Node => "node",
             Self::EdgeLight => "edge-light",
         }
+    }
+
+    fn all_conditions() -> &'static [Self] {
+        &[
+            Self::Default,
+            Self::Browser,
+            Self::Foreign,
+            Self::Development,
+            Self::Production,
+            Self::Node,
+            Self::EdgeLight,
+        ]
+    }
+
+    fn all_condition_strs() -> &'static [&'static str] {
+        static VALUE: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
+            WebpackLoaderBuiltinCondition::all_conditions()
+                .iter()
+                .map(|c| c.as_str())
+                .collect::<Vec<_>>()
+        });
+        &VALUE
     }
 }
 
@@ -90,27 +113,96 @@ impl FromStr for WebpackLoaderBuiltinCondition {
     }
 }
 
+impl Serialize for WebpackLoaderBuiltinCondition {
+    fn serialize<S>(&self, ser: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        ser.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for WebpackLoaderBuiltinCondition {
+    fn deserialize<D>(de: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct ConditionVisitor;
+        impl<'de> Visitor<'de> for ConditionVisitor {
+            type Value = WebpackLoaderBuiltinCondition;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                let valid_conditions =
+                    WebpackLoaderBuiltinCondition::all_condition_strs().join(", ");
+
+                write!(f, "one of the following strings: {valid_conditions}")
+            }
+
+            fn visit_str<E>(self, v: &str) -> std::result::Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                v.parse().map_err(|_| {
+                    serde::de::Error::unknown_variant(
+                        v,
+                        WebpackLoaderBuiltinCondition::all_condition_strs(),
+                    )
+                })
+            }
+        }
+        de.deserialize_str(ConditionVisitor)
+    }
+}
+
 impl PartialEq<WebpackLoaderBuiltinCondition> for &str {
     fn eq(&self, other: &WebpackLoaderBuiltinCondition) -> bool {
         *self == other.as_str()
     }
 }
 
+#[turbo_tasks::value]
+struct NextWebpackLoaderBuiltinConditionSet(BTreeSet<WebpackLoaderBuiltinCondition>);
+
+#[turbo_tasks::value_impl]
+impl NextWebpackLoaderBuiltinConditionSet {
+    #[turbo_tasks::function]
+    fn new(
+        conditions: BTreeSet<WebpackLoaderBuiltinCondition>,
+    ) -> Vc<Box<dyn WebpackLoaderBuiltinConditionSet>> {
+        Vc::upcast::<Box<dyn WebpackLoaderBuiltinConditionSet>>(
+            NextWebpackLoaderBuiltinConditionSet(conditions).cell(),
+        )
+    }
+}
+
+#[turbo_tasks::value_impl]
+impl WebpackLoaderBuiltinConditionSet for NextWebpackLoaderBuiltinConditionSet {
+    fn match_condition(&self, condition: &str) -> WebpackLoaderBuiltinConditionSetMatch {
+        match WebpackLoaderBuiltinCondition::from_str(condition) {
+            Ok(cond) => {
+                if self.0.contains(&cond) {
+                    WebpackLoaderBuiltinConditionSetMatch::Matched
+                } else {
+                    WebpackLoaderBuiltinConditionSetMatch::Unmatched
+                }
+            }
+            Err(_) => WebpackLoaderBuiltinConditionSetMatch::Invalid,
+        }
+    }
+}
+
 pub async fn webpack_loader_options(
     project_path: FileSystemPath,
     next_config: Vc<NextConfig>,
-    foreign: bool,
-    loader_conditions: BTreeSet<WebpackLoaderBuiltinCondition>,
+    builtin_conditions: BTreeSet<WebpackLoaderBuiltinCondition>,
 ) -> Result<Option<ResolvedVc<WebpackLoadersOptions>>> {
-    let rules = *next_config
-        .webpack_rules(loader_conditions, project_path.clone())
+    let mut rules = *next_config
+        .webpack_rules(builtin_conditions.clone(), project_path.clone())
         .await?;
-    let rules = *maybe_add_sass_loader(next_config.sass_config(), rules.map(|v| *v)).await?;
-    let rules = if foreign {
-        rules
-    } else {
-        *maybe_add_babel_loader(project_path.clone(), rules.map(|v| *v)).await?
-    };
+    rules = *maybe_add_sass_loader(next_config.sass_config(), rules.map(|v| *v)).await?;
+    if !builtin_conditions.contains(&WebpackLoaderBuiltinCondition::Foreign) {
+        rules = *maybe_add_babel_loader(project_path.clone(), rules.map(|v| *v)).await?;
+    }
 
     let conditions = next_config.webpack_conditions().to_resolved().await?;
     Ok(if let Some(rules) = rules {
@@ -119,6 +211,9 @@ pub async fn webpack_loader_options(
                 rules,
                 conditions,
                 loader_runner_package: Some(loader_runner_package_mapping().to_resolved().await?),
+                builtin_conditions: NextWebpackLoaderBuiltinConditionSet::new(builtin_conditions)
+                    .to_resolved()
+                    .await?,
             }
             .resolved_cell(),
         )
