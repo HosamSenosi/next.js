@@ -14,17 +14,16 @@ describe('ppr-metadata-streaming', () => {
   // No dynamic APIs used in metadata
   describe('static metadata', () => {
     it('should generate metadata in head when page is fully static', async () => {
-      const rootSelector = isNextDev ? 'body' : 'head'
       const $ = await next.render$('/fully-static')
-      expect($(`${rootSelector} title`).text()).toBe('fully static')
+      expect($('head title').text()).toBe('fully static')
       expect(countSubstring($.html(), '<title>')).toBe(1)
 
       const browser = await next.browser('/fully-static', {
         pushErrorAsConsoleLog: true,
       })
-      expect(
-        await browser.waitForElementByCss(`${rootSelector} title`).text()
-      ).toBe('fully static')
+      expect(await browser.waitForElementByCss('head title').text()).toBe(
+        'fully static'
+      )
       await assertNoConsoleErrors(browser)
     })
 
