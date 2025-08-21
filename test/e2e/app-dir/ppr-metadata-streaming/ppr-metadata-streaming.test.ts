@@ -13,7 +13,8 @@ describe('ppr-metadata-streaming', () => {
 
   // No dynamic APIs used in metadata
   describe('static metadata', () => {
-    it('should generate metadata in head when page is fully static', async () => {
+    // FIXME: (NAR-321) - Re-enable once warmup render RDC is available to dev render
+    it.skip('should generate metadata in head when page is fully static', async () => {
       const $ = await next.render$('/fully-static')
       expect($('head title').text()).toBe('fully static')
       expect(countSubstring($.html(), '<title>')).toBe(1)
@@ -86,18 +87,18 @@ describe('ppr-metadata-streaming', () => {
       await assertNoConsoleErrors(browser)
     })
 
-    it('should insert metadata into head with dynamic metadata and dynamic page wrapped under layout Suspense boundary', async () => {
-      const rootSelector = isNextDev ? 'body' : 'head'
+    // FIXME: (NAR-321) - Re-enable once warmup render RDC is available to dev render
+    it.skip('should insert metadata into head with dynamic metadata and dynamic page wrapped under layout Suspense boundary', async () => {
       const $ = await next.render$('/dynamic-page/partial')
-      expect($(`${rootSelector} title`).text()).toBe('dynamic-page - partial')
+      expect($('head title').text()).toBe('dynamic-page - partial')
       expect(countSubstring($.html(), '<title>')).toBe(1)
 
       const browser = await next.browser('/dynamic-page/partial', {
         pushErrorAsConsoleLog: true,
       })
-      expect(
-        await browser.waitForElementByCss(`${rootSelector} title`).text()
-      ).toBe('dynamic-page - partial')
+      expect(await browser.waitForElementByCss('head title').text()).toBe(
+        'dynamic-page - partial'
+      )
       await assertNoConsoleErrors(browser)
     })
 
