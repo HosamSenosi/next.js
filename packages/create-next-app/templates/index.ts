@@ -1,4 +1,5 @@
 import { install } from "../helpers/install";
+import { runTypegen } from "../helpers/typegen";
 import { copy } from "../helpers/copy";
 
 import { async as glob } from "fast-glob";
@@ -302,6 +303,13 @@ export const installTemplate = async ({
   console.log();
 
   await install(packageManager, isOnline);
+  try {
+    console.log();
+    await runTypegen(packageManager);
+    console.log();
+  } catch (err) {
+    // Best effort: do not fail app creation if typegen fails
+  }
 };
 
 export * from "./types";
