@@ -385,8 +385,8 @@ export type ManifestHeaderRoute = ManifestBuiltRoute & Header
 
 export type ManifestRoute = ManifestBuiltRoute & {
   page: string
-  namedRegex?: string
-  routeKeys?: { [key: string]: string }
+  namedRegex: string
+  routeKeys: { [key: string]: string }
 
   /**
    * If true, this indicates that the route has fallback root params. This is
@@ -4034,6 +4034,9 @@ export default async function build(
         await handleBuildComplete({
           dir,
           distDir,
+          config,
+          staticPages,
+          nextVersion: process.env.__NEXT_VERSION as string,
           tracingRoot: outputFileTracingRoot,
           hasNodeMiddleware,
           hasInstrumentationHook,
