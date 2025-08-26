@@ -196,7 +196,7 @@ pub async fn webpack_loader_options(
     next_config: Vc<NextConfig>,
     builtin_conditions: BTreeSet<WebpackLoaderBuiltinCondition>,
 ) -> Result<Option<ResolvedVc<WebpackLoadersOptions>>> {
-    let mut rules = next_config.webpack_rules(builtin_conditions.clone(), project_path.clone());
+    let mut rules = next_config.webpack_rules(project_path.clone());
 
     if !*next_config
         .experimental_turbopack_force_disable_sass()
@@ -205,10 +205,9 @@ pub async fn webpack_loader_options(
         rules = add_sass_loader(next_config.sass_config(), rules);
     }
 
-    if !builtin_conditions.contains(&WebpackLoaderBuiltinCondition::Foreign)
-        && !*next_config
-            .experimental_turbopack_force_disable_babel()
-            .await?
+    if !*next_config
+        .experimental_turbopack_force_disable_babel()
+        .await?
     {
         rules = maybe_add_babel_loader(project_path.clone(), rules);
     }
