@@ -1789,6 +1789,24 @@ function enforceExperimentalFeatures(
   }
 
   if (
+    process.env.__NEXT_EXPERIMENTAL_APP_NEW_SCROLL_HANDLER === 'true' &&
+    // We do respect an explicit value in the user config.
+    (config.experimental.appNewScrollHandler === undefined ||
+      (isDefaultConfig && !config.experimental.appNewScrollHandler))
+  ) {
+    config.experimental.appNewScrollHandler = true
+
+    if (configuredExperimentalFeatures) {
+      addConfiguredExperimentalFeature(
+        configuredExperimentalFeatures,
+        'appNewScrollHandler',
+        true,
+        'enabled by `__NEXT_EXPERIMENTAL_APP_NEW_SCROLL_HANDLER`'
+      )
+    }
+  }
+
+  if (
     config.experimental.enablePrerenderSourceMaps === undefined &&
     config.experimental.cacheComponents === true
   ) {

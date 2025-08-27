@@ -130,6 +130,7 @@ pub async fn get_next_client_import_map(
                 || *next_config.enable_taint().await?
                 || *next_config.enable_view_transition().await?
                 || *next_config.enable_router_bfcache().await?
+                || *next_config.enable_app_new_scroll_handler().await?
             {
                 "-experimental"
             } else {
@@ -841,11 +842,13 @@ async fn apply_vendored_react_aliases_server(
     let taint = *next_config.enable_taint().await?;
     let router_bfcache = *next_config.enable_router_bfcache().await?;
     let view_transition = *next_config.enable_view_transition().await?;
-    let react_channel = if ppr || taint || view_transition || router_bfcache {
-        "-experimental"
-    } else {
-        ""
-    };
+    let app_new_scroll_handler = *next_config.enable_app_new_scroll_handler().await?;
+    let react_channel =
+        if ppr || taint || view_transition || router_bfcache || app_new_scroll_handler {
+            "-experimental"
+        } else {
+            ""
+        };
     let react_condition = if ty.should_use_react_server_condition() {
         "server"
     } else {

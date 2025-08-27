@@ -891,6 +891,7 @@ jobs:
       afterBuild: |
         export __NEXT_EXPERIMENTAL_PPR=true # for compatibility with the existing tests
         export __NEXT_EXPERIMENTAL_CACHE_COMPONENTS=true
+        export __NEXT_EXPERIMENTAL_APP_NEW_SCROLL_HANDLER=true
         export NEXT_EXTERNAL_TESTS_FILTERS="test/variant-tests-manifest.json"
 
         node run-tests.js \
@@ -913,6 +914,7 @@ jobs:
       afterBuild: |
         export __NEXT_EXPERIMENTAL_PPR=true # for compatibility with the existing tests
         export __NEXT_EXPERIMENTAL_CACHE_COMPONENTS=true
+        export __NEXT_EXPERIMENTAL_APP_NEW_SCROLL_HANDLER=true
         export NEXT_EXTERNAL_TESTS_FILTERS="test/variant-tests-manifest.json"
         export NEXT_TEST_MODE=dev
 
@@ -937,6 +939,7 @@ jobs:
       afterBuild: |
         export __NEXT_EXPERIMENTAL_PPR=true # for compatibility with the existing tests
         export __NEXT_EXPERIMENTAL_CACHE_COMPONENTS=true
+        export __NEXT_EXPERIMENTAL_APP_NEW_SCROLL_HANDLER=true
         export NEXT_EXTERNAL_TESTS_FILTERS="test/variant-tests-manifest.json"
         export NEXT_TEST_MODE=start
 

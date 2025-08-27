@@ -758,6 +758,7 @@ pub struct ExperimentalConfig {
     after: Option<bool>,
     amp: Option<serde_json::Value>,
     app_document_preloading: Option<bool>,
+    app_new_scroll_handler: Option<bool>,
     cache_handlers: Option<FxIndexMap<RcStr, RcStr>>,
     cache_life: Option<FxIndexMap<String, CacheLifeProfile>>,
     case_sensitive_routes: Option<bool>,
@@ -1624,6 +1625,11 @@ impl NextConfig {
     #[turbo_tasks::function]
     pub fn enable_view_transition(&self) -> Vc<bool> {
         Vc::cell(self.experimental.view_transition.unwrap_or(false))
+    }
+
+    #[turbo_tasks::function]
+    pub fn enable_app_new_scroll_handler(&self) -> Vc<bool> {
+        Vc::cell(self.experimental.app_new_scroll_handler.unwrap_or(false))
     }
 
     #[turbo_tasks::function]

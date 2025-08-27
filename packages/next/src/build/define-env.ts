@@ -165,6 +165,9 @@ export function getDefineEnv({
     'process.env.__NEXT_CACHE_COMPONENTS': isCacheComponentsEnabled,
     'process.env.__NEXT_USE_CACHE': isUseCacheEnabled,
 
+    'process.env.__NEXT_APP_NEW_SCROLL_HANDLER': Boolean(
+      config.experimental.appNewScrollHandler
+    ),
     'process.env.NEXT_DEPLOYMENT_ID': config.experimental?.useSkewCookie
       ? false
       : config.deploymentId || false,

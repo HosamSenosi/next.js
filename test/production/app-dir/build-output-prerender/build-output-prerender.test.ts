@@ -2,9 +2,7 @@ import { nextTestSetup } from 'e2e-utils'
 import path from 'path'
 const { version: nextVersion } = require('next/package.json')
 
-const cacheComponentsEnabled =
-  process.env.__NEXT_EXPERIMENTAL_CACHE_COMPONENTS === 'true'
-
+const isVariant = process.env.__NEXT_EXPERIMENTAL_CACHE_COMPONENTS === 'true'
 const pprEnabled = process.env.__NEXT_EXPERIMENTAL_PPR === 'true'
 
 describe('build-output-prerender', () => {
@@ -18,7 +16,7 @@ describe('build-output-prerender', () => {
       beforeAll(() => next.build())
 
       it('prints only the user-selected experimental flags (and the ones enabled via env variable)', async () => {
-        if (cacheComponentsEnabled) {
+        if (isVariant) {
           if (isTurbopack) {
             expect(getPreambleOutput(next.cliOutput)).toMatchInlineSnapshot(`
              "▲ Next.js x.y.z (Turbopack)
@@ -27,6 +25,7 @@ describe('build-output-prerender', () => {
                   ✓ cacheComponents
                   ✓ clientSegmentCache (enabled by \`__NEXT_EXPERIMENTAL_PPR\`)
                   ✓ clientParamParsing (enabled by \`__NEXT_EXPERIMENTAL_PPR\`)
+                  ✓ appNewScrollHandler (enabled by \`__NEXT_EXPERIMENTAL_APP_NEW_SCROLL_HANDLER\`)
                   ✓ enablePrerenderSourceMaps (enabled by \`experimental.cacheComponents\`)"
             `)
           } else {
@@ -37,6 +36,7 @@ describe('build-output-prerender', () => {
                   ✓ cacheComponents
                   ✓ clientSegmentCache (enabled by \`__NEXT_EXPERIMENTAL_PPR\`)
                   ✓ clientParamParsing (enabled by \`__NEXT_EXPERIMENTAL_PPR\`)
+                  ✓ appNewScrollHandler (enabled by \`__NEXT_EXPERIMENTAL_APP_NEW_SCROLL_HANDLER\`)
                   ✓ enablePrerenderSourceMaps (enabled by \`experimental.cacheComponents\`)"
             `)
           }
@@ -123,7 +123,7 @@ describe('build-output-prerender', () => {
       beforeAll(() => next.build())
 
       it('prints a warning and the customized experimental flags', async () => {
-        if (cacheComponentsEnabled) {
+        if (isVariant) {
           if (isTurbopack) {
             expect(getPreambleOutput(next.cliOutput)).toMatchInlineSnapshot(`
              "⚠ Prerendering is running in debug mode. Note: This may affect performance and should not be used for production.
@@ -136,6 +136,7 @@ describe('build-output-prerender', () => {
                   ⨯ prerenderEarlyExit (disabled by \`--debug-prerender\`)
                   ✓ clientSegmentCache (enabled by \`__NEXT_EXPERIMENTAL_PPR\`)
                   ✓ clientParamParsing (enabled by \`__NEXT_EXPERIMENTAL_PPR\`)
+                  ✓ appNewScrollHandler (enabled by \`__NEXT_EXPERIMENTAL_APP_NEW_SCROLL_HANDLER\`)
                   ✓ enablePrerenderSourceMaps (enabled by \`--debug-prerender\`)"
             `)
           } else {
@@ -150,6 +151,7 @@ describe('build-output-prerender', () => {
                   ⨯ prerenderEarlyExit (disabled by \`--debug-prerender\`)
                   ✓ clientSegmentCache (enabled by \`__NEXT_EXPERIMENTAL_PPR\`)
                   ✓ clientParamParsing (enabled by \`__NEXT_EXPERIMENTAL_PPR\`)
+                  ✓ appNewScrollHandler (enabled by \`__NEXT_EXPERIMENTAL_APP_NEW_SCROLL_HANDLER\`)
                   ✓ enablePrerenderSourceMaps (enabled by \`--debug-prerender\`)"
             `)
           }
@@ -251,7 +253,7 @@ describe('build-output-prerender', () => {
       beforeAll(() => next.build())
 
       it('prints no experimental flags (unless enabled via env variable)', async () => {
-        if (cacheComponentsEnabled) {
+        if (isVariant) {
           if (isTurbopack) {
             expect(getPreambleOutput(next.cliOutput)).toMatchInlineSnapshot(`
              "▲ Next.js x.y.z (Turbopack)
@@ -260,6 +262,7 @@ describe('build-output-prerender', () => {
                   ✓ cacheComponents (enabled by \`__NEXT_EXPERIMENTAL_CACHE_COMPONENTS\`)
                   ✓ clientSegmentCache (enabled by \`__NEXT_EXPERIMENTAL_PPR\`)
                   ✓ clientParamParsing (enabled by \`__NEXT_EXPERIMENTAL_PPR\`)
+                  ✓ appNewScrollHandler (enabled by \`__NEXT_EXPERIMENTAL_APP_NEW_SCROLL_HANDLER\`)
                   ✓ enablePrerenderSourceMaps (enabled by \`experimental.cacheComponents\`)"
             `)
           } else {
@@ -270,6 +273,7 @@ describe('build-output-prerender', () => {
                   ✓ cacheComponents (enabled by \`__NEXT_EXPERIMENTAL_CACHE_COMPONENTS\`)
                   ✓ clientSegmentCache (enabled by \`__NEXT_EXPERIMENTAL_PPR\`)
                   ✓ clientParamParsing (enabled by \`__NEXT_EXPERIMENTAL_PPR\`)
+                  ✓ appNewScrollHandler (enabled by \`__NEXT_EXPERIMENTAL_APP_NEW_SCROLL_HANDLER\`)
                   ✓ enablePrerenderSourceMaps (enabled by \`experimental.cacheComponents\`)"
             `)
           }
@@ -315,7 +319,7 @@ describe('build-output-prerender', () => {
       beforeAll(() => next.build())
 
       it('prints a warning and the customized experimental flags', async () => {
-        if (cacheComponentsEnabled) {
+        if (isVariant) {
           if (isTurbopack) {
             expect(getPreambleOutput(next.cliOutput)).toMatchInlineSnapshot(`
              "⚠ Prerendering is running in debug mode. Note: This may affect performance and should not be used for production.
@@ -328,6 +332,7 @@ describe('build-output-prerender', () => {
                   ⨯ prerenderEarlyExit (disabled by \`--debug-prerender\`)
                   ✓ clientSegmentCache (enabled by \`__NEXT_EXPERIMENTAL_PPR\`)
                   ✓ clientParamParsing (enabled by \`__NEXT_EXPERIMENTAL_PPR\`)
+                  ✓ appNewScrollHandler (enabled by \`__NEXT_EXPERIMENTAL_APP_NEW_SCROLL_HANDLER\`)
                   ✓ enablePrerenderSourceMaps (enabled by \`--debug-prerender\`)"
             `)
           } else {
@@ -342,6 +347,7 @@ describe('build-output-prerender', () => {
                   ⨯ prerenderEarlyExit (disabled by \`--debug-prerender\`)
                   ✓ clientSegmentCache (enabled by \`__NEXT_EXPERIMENTAL_PPR\`)
                   ✓ clientParamParsing (enabled by \`__NEXT_EXPERIMENTAL_PPR\`)
+                  ✓ appNewScrollHandler (enabled by \`__NEXT_EXPERIMENTAL_APP_NEW_SCROLL_HANDLER\`)
                   ✓ enablePrerenderSourceMaps (enabled by \`--debug-prerender\`)"
             `)
           }
