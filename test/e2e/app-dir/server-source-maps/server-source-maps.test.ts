@@ -485,6 +485,8 @@ describe('app-dir - server source maps', () => {
              "{module evaluation} app/module-evaluation/page.js (1:1)",
              "{module evaluation} app/module-evaluation/page.js (6:1)",
              "<FIXME-next-dist-dir>",
+             "Function.all <anonymous>",
+             "Function.all <anonymous>",
              "Page <anonymous>",
            ],
          }
