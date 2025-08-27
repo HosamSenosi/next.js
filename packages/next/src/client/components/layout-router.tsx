@@ -22,6 +22,7 @@ import React, {
   startTransition,
   Suspense,
   useDeferredValue,
+  useLayoutEffect,
   type FragmentInstance,
   type JSX,
 } from 'react'
@@ -307,81 +308,73 @@ class InnerScrollAndFocusHandlerOld extends React.Component<ScrollAndFocusHandle
   }
 }
 
-class InnerScrollAndFocusHandlerNew extends React.Component<ScrollAndFocusHandlerProps> {
-  childrenRef = React.createRef<FragmentInstance>()
+function InnerScrollAndFocusHandlerNew(props: ScrollAndFocusHandlerProps) {
+  const childrenRef = React.useRef<FragmentInstance>(null)
 
-  handlePotentialScroll = () => {
-    // Handle scroll and focus, it's only applied once in the first useEffect that triggers that changed.
-    const { focusAndScrollRef, segmentPath } = this.props
+  useLayoutEffect(
+    () => {
+      const { focusAndScrollRef, segmentPath } = props
+      // Handle scroll and focus, it's only applied once in the first useEffect that triggers that changed.
 
-    if (focusAndScrollRef.apply) {
-      // segmentPaths is an array of segment paths that should be scrolled to
-      // if the current segment path is not in the array, the scroll is not applied
-      // unless the array is empty, in which case the scroll is always applied
-      if (
-        focusAndScrollRef.segmentPaths.length !== 0 &&
-        !focusAndScrollRef.segmentPaths.some((scrollRefSegmentPath) =>
-          segmentPath.every((segment, index) =>
-            matchSegment(segment, scrollRefSegmentPath[index])
+      if (focusAndScrollRef.apply) {
+        // segmentPaths is an array of segment paths that should be scrolled to
+        // if the current segment path is not in the array, the scroll is not applied
+        // unless the array is empty, in which case the scroll is always applied
+        if (
+          focusAndScrollRef.segmentPaths.length !== 0 &&
+          !focusAndScrollRef.segmentPaths.some((scrollRefSegmentPath) =>
+            segmentPath.every((segment, index) =>
+              matchSegment(segment, scrollRefSegmentPath[index])
+            )
           )
-        )
-      ) {
-        return
-      }
-
-      let domNode: FragmentInstance | HTMLElement | null = null
-      const hashFragment = focusAndScrollRef.hashFragment
-
-      if (hashFragment) {
-        domNode = getHashFragmentDomNode(hashFragment)
-      }
-
-      if (!domNode) {
-        domNode = this.childrenRef.current
-      }
-
-      // If there is no DOM node this layout-router level is skipped. It'll be handled higher-up in the tree.
-      if (domNode === null) {
-        return
-      }
-
-      // State is mutated to ensure that the focus and scroll is applied only once.
-      focusAndScrollRef.apply = false
-      focusAndScrollRef.hashFragment = null
-      focusAndScrollRef.segmentPaths = []
-
-      const alignToTop = false
-      disableSmoothScrollDuringRouteTransition(
-        domNode.experimental_scrollIntoView.bind(domNode, alignToTop),
-        {
-          // We will force layout by querying domNode position
-          dontForceLayout: true,
-          onlyHashChange: focusAndScrollRef.onlyHashChange,
+        ) {
+          return
         }
-      )
 
-      // Mutate after scrolling so that it can be read by `disableSmoothScrollDuringRouteTransition`
-      focusAndScrollRef.onlyHashChange = false
+        let domNode: FragmentInstance | HTMLElement | null = null
+        const hashFragment = focusAndScrollRef.hashFragment
 
-      // Set focus on the element
-      domNode.focus()
-    }
-  }
+        if (hashFragment) {
+          domNode = getHashFragmentDomNode(hashFragment)
+        }
 
-  componentDidMount() {
-    this.handlePotentialScroll()
-  }
+        if (!domNode) {
+          domNode = childrenRef.current
+        }
 
-  componentDidUpdate() {
-    // Because this property is overwritten in handlePotentialScroll it's fine to always run it when true as it'll be set to false for subsequent renders.
-    if (this.props.focusAndScrollRef.apply) {
-      this.handlePotentialScroll()
-    }
-  }
+        // If there is no DOM node this layout-router level is skipped. It'll be handled higher-up in the tree.
+        if (domNode === null) {
+          return
+        }
 
-  render() {
-    return <Fragment ref={this.childrenRef}>{this.props.children}</Fragment>
-  }
+        // State is mutated to ensure that the focus and scroll is applied only once.
+        focusAndScrollRef.apply = false
+        focusAndScrollRef.hashFragment = null
+        focusAndScrollRef.segmentPaths = []
+
+        const alignToTop = false
+        disableSmoothScrollDuringRouteTransition(
+          domNode.experimental_scrollIntoView.bind(domNode, alignToTop),
+          {
+            // We will force layout by querying domNode position
+            dontForceLayout: true,
+            onlyHashChange: focusAndScrollRef.onlyHashChange,
+          }
+        )
+
+        // Mutate after scrolling so that it can be read by `disableSmoothScrollDuringRouteTransition`
+        focusAndScrollRef.onlyHashChange = false
+
+        // Set focus on the element
+        domNode.focus()
+      }
+    },
+    // Used to run on every commit. We may be able to be smarter about this
+    // but be prepared for lots of manual testing.
+    undefined
+  )
+
+  return <Fragment ref={childrenRef}>{props.children}</Fragment>
 }
 
 const InnerScrollAndFocusHandler = enableNewScrollHandler
