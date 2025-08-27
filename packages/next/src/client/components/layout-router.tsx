@@ -16,11 +16,13 @@ import {
 } from './router-reducer/router-reducer-types'
 
 import React, {
+  Fragment,
   useContext,
   use,
   startTransition,
   Suspense,
   useDeferredValue,
+  type FragmentInstance,
   type JSX,
 } from 'react'
 import ReactDOM from 'react-dom'
@@ -45,6 +47,8 @@ import { normalizeAppPath } from '../../shared/lib/router/utils/app-paths'
 const Activity = process.env.__NEXT_ROUTER_BF_CACHE
   ? (require('react') as typeof import('react')).unstable_Activity
   : null!
+
+const enableNewScrollHandler = process.env.__NEXT_APP_NEW_SCROLL_HANDLER
 
 /**
  * Add refetch marker to router state at the point of the current layout segment.
@@ -182,7 +186,7 @@ interface ScrollAndFocusHandlerProps {
   children: React.ReactNode
   segmentPath: FlightSegmentPath
 }
-class InnerScrollAndFocusHandler extends React.Component<ScrollAndFocusHandlerProps> {
+class InnerScrollAndFocusHandlerOld extends React.Component<ScrollAndFocusHandlerProps> {
   handlePotentialScroll = () => {
     // Handle scroll and focus, it's only applied once.
     const { focusAndScrollRef, segmentPath } = this.props
@@ -227,9 +231,9 @@ class InnerScrollAndFocusHandler extends React.Component<ScrollAndFocusHandlerPr
       while (!(domNode instanceof HTMLElement) || shouldSkipElement(domNode)) {
         if (process.env.NODE_ENV !== 'production') {
           if (domNode.parentElement?.localName === 'head') {
-            // TODO: We enter this state when metadata was rendered as part of the page or via Next.js.
+            // We enter this state when metadata was rendered as part of the page or via Next.js.
             // This is always a bug in Next.js and caused by React hoisting metadata.
-            // We need to replace `findDOMNode` in favor of Fragment Refs (when available) so that we can skip over metadata.
+            // Fixed with `experimental.appNewScrollHandler`
           }
         }
 
@@ -302,6 +306,87 @@ class InnerScrollAndFocusHandler extends React.Component<ScrollAndFocusHandlerPr
     return this.props.children
   }
 }
+
+class InnerScrollAndFocusHandlerNew extends React.Component<ScrollAndFocusHandlerProps> {
+  childrenRef = React.createRef<FragmentInstance>()
+
+  handlePotentialScroll = () => {
+    // Handle scroll and focus, it's only applied once in the first useEffect that triggers that changed.
+    const { focusAndScrollRef, segmentPath } = this.props
+
+    if (focusAndScrollRef.apply) {
+      // segmentPaths is an array of segment paths that should be scrolled to
+      // if the current segment path is not in the array, the scroll is not applied
+      // unless the array is empty, in which case the scroll is always applied
+      if (
+        focusAndScrollRef.segmentPaths.length !== 0 &&
+        !focusAndScrollRef.segmentPaths.some((scrollRefSegmentPath) =>
+          segmentPath.every((segment, index) =>
+            matchSegment(segment, scrollRefSegmentPath[index])
+          )
+        )
+      ) {
+        return
+      }
+
+      let domNode: FragmentInstance | HTMLElement | null = null
+      const hashFragment = focusAndScrollRef.hashFragment
+
+      if (hashFragment) {
+        domNode = getHashFragmentDomNode(hashFragment)
+      }
+
+      if (!domNode) {
+        domNode = this.childrenRef.current
+      }
+
+      // If there is no DOM node this layout-router level is skipped. It'll be handled higher-up in the tree.
+      if (domNode === null) {
+        return
+      }
+
+      // State is mutated to ensure that the focus and scroll is applied only once.
+      focusAndScrollRef.apply = false
+      focusAndScrollRef.hashFragment = null
+      focusAndScrollRef.segmentPaths = []
+
+      const alignToTop = false
+      disableSmoothScrollDuringRouteTransition(
+        domNode.experimental_scrollIntoView.bind(domNode, alignToTop),
+        {
+          // We will force layout by querying domNode position
+          dontForceLayout: true,
+          onlyHashChange: focusAndScrollRef.onlyHashChange,
+        }
+      )
+
+      // Mutate after scrolling so that it can be read by `disableSmoothScrollDuringRouteTransition`
+      focusAndScrollRef.onlyHashChange = false
+
+      // Set focus on the element
+      domNode.focus()
+    }
+  }
+
+  componentDidMount() {
+    this.handlePotentialScroll()
+  }
+
+  componentDidUpdate() {
+    // Because this property is overwritten in handlePotentialScroll it's fine to always run it when true as it'll be set to false for subsequent renders.
+    if (this.props.focusAndScrollRef.apply) {
+      this.handlePotentialScroll()
+    }
+  }
+
+  render() {
+    return <Fragment ref={this.childrenRef}>{this.props.children}</Fragment>
+  }
+}
+
+const InnerScrollAndFocusHandler = enableNewScrollHandler
+  ? InnerScrollAndFocusHandlerNew
+  : InnerScrollAndFocusHandlerOld
 
 function ScrollAndFocusHandler({
   segmentPath,
