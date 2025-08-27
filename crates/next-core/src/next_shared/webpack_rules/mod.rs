@@ -10,7 +10,7 @@ use turbopack::module_options::{
 };
 use turbopack_core::resolve::{ExternalTraced, ExternalType, options::ImportMapping};
 
-use self::{babel::maybe_add_babel_loader, sass::maybe_add_sass_loader};
+use self::{babel::maybe_add_babel_loader, sass::add_sass_loader};
 use crate::next_config::NextConfig;
 
 pub(crate) mod babel;
@@ -196,16 +196,26 @@ pub async fn webpack_loader_options(
     next_config: Vc<NextConfig>,
     builtin_conditions: BTreeSet<WebpackLoaderBuiltinCondition>,
 ) -> Result<Option<ResolvedVc<WebpackLoadersOptions>>> {
-    let mut rules = *next_config
-        .webpack_rules(builtin_conditions.clone(), project_path.clone())
-        .await?;
-    rules = *maybe_add_sass_loader(next_config.sass_config(), rules.map(|v| *v)).await?;
-    if !builtin_conditions.contains(&WebpackLoaderBuiltinCondition::Foreign) {
-        rules = *maybe_add_babel_loader(project_path.clone(), rules.map(|v| *v)).await?;
+    let mut rules = next_config.webpack_rules(builtin_conditions.clone(), project_path.clone());
+
+    if !*next_config
+        .experimental_turbopack_force_disable_sass()
+        .await?
+    {
+        rules = add_sass_loader(next_config.sass_config(), rules);
     }
 
-    let conditions = next_config.webpack_conditions().to_resolved().await?;
-    Ok(if let Some(rules) = rules {
+    if !builtin_conditions.contains(&WebpackLoaderBuiltinCondition::Foreign)
+        && !*next_config
+            .experimental_turbopack_force_disable_babel()
+            .await?
+    {
+        rules = maybe_add_babel_loader(project_path.clone(), rules);
+    }
+
+    let rules = rules.to_resolved().await?;
+    Ok(if !rules.await?.is_empty() {
+        let conditions = next_config.webpack_conditions().to_resolved().await?;
         Some(
             WebpackLoadersOptions {
                 rules,
