@@ -1736,7 +1736,6 @@ export default async function build(
                     hasSsrAmpPages: false,
                     buildTraceContext,
                     outputFileTracingRoot,
-                    isTurbopack: false,
                   })
                   .catch((err) => {
                     console.error(err)
@@ -2630,7 +2629,7 @@ export default async function build(
 
       await writeFunctionsConfigManifest(distDir, functionsConfigManifest)
 
-      if (!isGenerateMode && !buildTracesPromise) {
+      if (!isTurbopack && !isGenerateMode && !buildTracesPromise) {
         buildTracesPromise = collectBuildTraces({
           dir,
           config,
@@ -2641,7 +2640,6 @@ export default async function build(
           hasSsrAmpPages,
           buildTraceContext,
           outputFileTracingRoot,
-          isTurbopack,
         }).catch((err) => {
           console.error(err)
           process.exit(1)
@@ -3923,7 +3921,10 @@ export default async function build(
       }
 
       const postBuildSpinner = createSpinner('Finalizing page optimization')
-      let buildTracesSpinner = createSpinner(`Collecting build traces`)
+      let buildTracesSpinner
+      if (buildTracesPromise) {
+        buildTracesSpinner = createSpinner('Collecting build traces')
+      }
 
       // ensure the worker is not left hanging
       worker.end()
