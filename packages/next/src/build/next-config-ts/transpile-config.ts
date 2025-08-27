@@ -1,8 +1,10 @@
 import type { Options as SWCOptions } from '@swc/core'
 import type { CompilerOptions } from 'typescript'
 
-import { resolve } from 'node:path'
-import { readFile } from 'node:fs/promises'
+import path from 'path'
+import { readFile } from 'fs/promises'
+import { Worker } from 'worker_threads'
+
 import { deregisterHook, registerHook, requireFromString } from './require-hook'
 import { warn } from '../output/log'
 import { installDependencies } from '../../lib/install-dependencies'
@@ -19,7 +21,7 @@ function resolveSWCOptions(
       ...(compilerOptions.paths ? { paths: compilerOptions.paths } : {}),
       ...(compilerOptions.baseUrl
         ? // Needs to be an absolute path.
-          { baseUrl: resolve(cwd, compilerOptions.baseUrl) }
+          { baseUrl: path.resolve(cwd, compilerOptions.baseUrl) }
         : compilerOptions.paths
           ? // If paths is given, baseUrl is required.
             { baseUrl: cwd }
@@ -117,6 +119,13 @@ export async function transpileConfig({
     await verifyTypeScriptSetup(cwd, configFileName)
     const compilerOptions = await getTsConfig(cwd)
 
+    if (
+      configFileName.endsWith('.mts') ||
+      require(path.join(cwd, 'package.json')).type === 'module'
+    ) {
+      return handleESM({ cwd, compilerOptions })
+    }
+
     return handleCJS({ cwd, nextConfigPath, compilerOptions })
   } catch (cause) {
     throw new Error(`Failed to transpile "${configFileName}".`, {
@@ -150,7 +159,7 @@ async function handleCJS({
     }
 
     // filename & extension don't matter here
-    return requireFromString(code, resolve(cwd, 'next.config.compiled.js'))
+    return requireFromString(code, path.resolve(cwd, 'next.config.compiled.js'))
   } catch (error) {
     throw error
   } finally {
@@ -158,4 +167,34 @@ async function handleCJS({
       deregisterHook()
     }
   }
+}
+
+async function handleESM(workerData: {
+  cwd: string
+  compilerOptions: CompilerOptions
+}) {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(path.join(__dirname, './import-config.js'), {
+      workerData,
+      env: {
+        ...process.env,
+      },
+    })
+
+    worker.on('message', (result) => {
+      if (result.success) {
+        resolve(result.config)
+      } else {
+        reject(new Error(result.error || 'Unknown error in config worker'))
+      }
+    })
+
+    worker.on('error', reject)
+
+    worker.on('exit', (code) => {
+      if (code !== 0) {
+        reject(new Error(`Worker stopped with exit code ${code}`))
+      }
+    })
+  })
 }
