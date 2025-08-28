@@ -721,6 +721,34 @@ jobs:
       buildNativeTarget: 'x86_64-pc-windows-msvc'
     secrets: inherit
 
+  test-prod-windows-typed-routes:
+    name: test prod windows typed routes
+    needs:
+      [
+        'optimize-ci',
+        'changes',
+        'build-native-windows',
+        'build-native',
+        'build-next',
+      ]
+    if: ${{ needs.optimize-ci.outputs.skip == 'false' && needs.changes.outputs.docs-only == 'false' }}
+
+    uses: ./.github/workflows/build_reusable.yml
+    with:
+      afterBuild: |
+        export NEXT_TEST_MODE=start
+        export __NEXT_TYPED_ROUTES=true
+
+        node run-tests.js --type production \
+          test/e2e/app-dir/app/index.test.ts \
+          test/e2e/app-dir/app-edge/app-edge.test.ts \
+          test/e2e/app-dir/metadata-edge/index.test.ts \
+          test/e2e/app-dir/non-root-project-monorepo/non-root-project-monorepo.test.ts
+      stepName: 'test-prod-windows'
+      runs_on_labels: '["windows","self-hosted","x64"]'
+      buildNativeTarget: 'x86_64-pc-windows-msvc'
+    secrets: inherit
+
   test-prod:
     name: test prod
     needs: ['optimize-ci', 'changes', 'build-native', 'build-next']
@@ -740,6 +768,31 @@ jobs:
       afterBuild: |
         export NEXT_TEST_MODE=start
         export NEXT_TEST_REACT_VERSION="${{ matrix.react }}"
+
+        node run-tests.js --timings -g ${{ matrix.group }} --type production
+      stepName: 'test-prod-react-${{ matrix.react }}-${{ matrix.group }}'
+    secrets: inherit
+
+  test-prod-typed-routes:
+    name: test prod typed routes
+    needs: ['optimize-ci', 'changes', 'build-native', 'build-next']
+    if: ${{ needs.optimize-ci.outputs.skip == 'false' && needs.changes.outputs.docs-only == 'false' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        exclude:
+          # Excluding React 18 tests unless on `canary` branch until budget is approved.
+          - react: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'run-react-18-tests') && '18.3.1' }}
+        group: [1/7, 2/7, 3/7, 4/7, 5/7, 6/7, 7/7]
+        # Empty value uses default
+        react: ['', '18.3.1']
+    uses: ./.github/workflows/build_reusable.yml
+    with:
+      afterBuild: |
+        export NEXT_TEST_MODE=start
+        export NEXT_TEST_REACT_VERSION="${{ matrix.react }}"
+        export __NEXT_TYPED_ROUTES=true
 
         node run-tests.js --timings -g ${{ matrix.group }} --type production
       stepName: 'test-prod-react-${{ matrix.react }}-${{ matrix.group }}'
@@ -958,6 +1011,7 @@ jobs:
         'test-unit',
         'test-dev',
         'test-prod',
+        'test-prod-typed-routes',
         'test-integration',
         'test-firefox-safari',
         'test-ppr-dev',
@@ -981,6 +1035,7 @@ jobs:
         'test-dev-windows',
         'test-integration-windows',
         'test-prod-windows',
+        'test-prod-windows-typed-routes',
       ]
 
     if: always()

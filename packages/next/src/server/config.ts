@@ -1157,6 +1157,11 @@ function assignDefaultsAndValidate(
     )
   }
 
+  // Override typedRoutes with CLI flag if provided
+  if (process.env.__NEXT_TYPED_ROUTES === 'true') {
+    result.typedRoutes = true
+  }
+
   return result as NextConfigComplete
 }
 
